@@ -1,6 +1,6 @@
 ---
 title: "Stawberries: exploratory data analysis"
-author: MA615
+author: Yingmai Chen
 date: 2023 Oct 11
 format: html
 engine: knitr
@@ -108,40 +108,46 @@ strawberry <- read_csv("strawberry_oct4.csv", col_names = TRUE)
 #| echo: false
 
 ## define function
+#| label: drop one-item columns
+#| echo: false
+
+## define function
 drop_one_value_col <- function(df){
-col_name <- NULL
-col_val <- NULL
-suppressWarnings({
-for(i in 1:dim(df)[2]){
-if((df |> distinct(df[,i]) |> count()) == 1){
-  col_name = c(col_name, colnames(df[i]))
-  col_val = c(col_val, df[1,i])  
-} }
-})
+  col_name <- NULL
+  col_val <- NULL
+  suppressWarnings({
+    for(i in 1:dim(df)[2]){
+      if((df |> distinct(df[,i]) |> count()) == 1){
+        col_name = c(col_name, colnames(df[i]))
+        col_val = c(col_val, df[1,i])  
+      } 
+    }
+  })
 
-if(is.null(col_name)){return("No Columns to drop")}else{
-   col_val = unlist(col_val)
-   attributes(col_val) = NULL
-   drp = data.frame(col_name, col_val)
-   return(drp)
-   }
+  if(is.null(col_name)){
+    return("No Columns to drop")
+  } else {
+    col_val = unlist(col_val)
+    attributes(col_val) = NULL
+    drp = data.frame(col_name, col_val)
+    return(drp)
+  }
 }
-str <- drop_one_value_col(strawberry)
 
-if (is.data.frame(str)) {
-  str <- str$col_name
-  strawberry <- strawberry |> select(!all_of(str))
+result <- drop_one_value_col(strawberry)
+
+if (is.data.frame(result)) {
+  cols_to_drop <- result$col_name
+  strawberry <- strawberry |> select(!all_of(cols_to_drop))
+  print(result |> kable(caption = "Dropped Single-Value Columns: names and values"))
 } else {
   # Handle the case where there are no columns to drop
-  print(str)
+  print(result)
 }
 
-str <- drop_one_value_col(strawberry)
- str |> kable(caption = "Dropped Single-Value Columns: names and values")
 
-str <- str$col_name
 
-strawberry <- strawberry |> select(!all_of(str))
+
 
 
 
@@ -667,58 +673,6 @@ v_trns <- dcomma(v)
 <!-- In final versions of this document, they should be included in the EDA section. Note that the code will not run without editing. -->
 
 
-<!-- ## plots   -->
-
-```{r}
-#| label: plot 1
-#| echo: false
-#| eval: false
-
-plot1_data <- strawberry |> 
-  select(c(Year, State, Category, Value)) |> 
-  filter((Year == 2021) & (Category == "ORGANIC - OPERATIONS WITH SALES"))
-
-plot1_data$Value <- as.numeric(plot1_data$Value)
-
-plot1_data <- plot1_data |> arrange(desc(Value))
-
-ggplot(plot1_data, aes(x=reorder(State, -Value), y=Value)) + 
-  geom_bar(stat = "identity") + 
-  theme(axis.text.x=element_text(angle=45,hjust=1)) +
-  labs(x = "States", y = "Count",
-title ="Number of Organic Strawberry operations with Sales in 2021")
-
-
-```
-
-```{r}
-#| label: plot 2
-#| echo: false
-#| eval: false
-
-
-##
-plot2_data <- strawberry |> 
-  select(c(Year, State, Category, Item, Value)) |> 
-  filter((Year == 2021) & 
-           (Category == "ORGANIC - SALES") & 
-           (Item == "MEASURED IN $") & 
-           (Value != "(D)"))
-
-
-plot2_data$Value <- as.numeric(gsub(",", "", plot2_data$Value))
-
-plot2_data <- plot1_data |> arrange(desc(Value))
-
-ggplot(plot2_data, aes(x=reorder(State, -Value), y=Value)) + 
-  geom_bar(stat = "identity") + 
-  theme(axis.text.x=element_text(angle=45,hjust=1)) +
-  labs(x = "States", y = "Sales",
-title ="Organic Strawberry Sales ($) in 2021")
-
-
-```
-
 ## EDA
 
 Once the data has been cleaned and organized, you must conduct your own EDA.  Be sure to include a discussion of your analysis of the chemical information, including citations for data and other information you have used.  Visualizations should play a key role in your analysis.  Plots should be labeled and captioned.
@@ -962,6 +916,44 @@ mkt1 <- drop_one_value_col(strwb_survey_mkt)
 mkt1 <- setdiff(colnames(strwb_survey_mkt), mkt1$col_name)
 
 strwb_survey_mkt <- strwb_survey_mkt |> select(all_of(mkt1))
+
+
+```
+###My EDA
+1. Distribution of Program:
+```{r}
+library(ggplot2)
+ggplot(strawberry, aes(x=Program)) +
+  geom_bar(fill="lightcoral") +
+  theme_minimal() +
+  labs(title=" Programs", x="Program", y="Count")
+
+```
+2. Distribution of Entries by Year:
+```{r}
+ggplot(strawberry, aes(x=Year)) +
+  geom_bar(fill="lightgreen") +
+  theme_minimal() +
+  labs(title="Number of Entries by Year", x="Year", y="Count")
+
+```
+3. Distribution of Period:
+```{r}
+ggplot(strawberry, aes(x=Period)) +
+  geom_bar(fill="lightblue") +
+  theme_minimal() +
+  labs(title=" Periods", x="Period", y="Count")
+
+```
+
+4.Distribution of Domain:
+```{r}
+ggplot(strawberry, aes(x=Domain)) +
+  geom_bar(fill="lightgray") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title=" Domains", x="Domain", y="Count")
+
 
 
 ```
