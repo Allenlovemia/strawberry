@@ -2,7 +2,7 @@
 title: "Stawberries: exploratory data analysis"
 author: Yingmai Chen
 date: 2023 Oct 11
-format: html
+format: pdf
 engine: knitr
 ---
 
