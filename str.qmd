@@ -676,7 +676,43 @@ v_trns <- dcomma(v)
 ## EDA
 
 Once the data has been cleaned and organized, you must conduct your own EDA.  Be sure to include a discussion of your analysis of the chemical information, including citations for data and other information you have used.  Visualizations should play a key role in your analysis.  Plots should be labeled and captioned.
+```{r}
+stb_survey <- strwb_survey %>%
+  filter(str_detect(`Data Item`, "MEASURED IN")) %>%
+  mutate(`Data Item` = str_extract(`Data Item`, "(?<=MEASURED IN ).*"))
+stb_survey <- stb_survey %>%
+  mutate(
+    Chemical = if_else(str_detect(`Domain Category`, "\\(.*=.*\\)"),
+                       str_extract(`Domain Category`, "(?<=\\().*?(?=\\=)"),
+                       NA_character_),
+    Chemical_Code = if_else(str_detect(`Domain Category`, "\\(.*=.*\\)"),
+                            str_extract(`Domain Category`, "(?<=\\=).*?(?=\\))"),
+                            NA_character_)
+  )
 
+
+stb_survey <- subset(stb_survey, select = -Program)
+stb_survey <- subset(stb_survey, select = -`Domain Category`)
+```
+Dealing with Missing Values, Outliers, and Duplicates
+```{r}
+stb_survey <- stb_survey[, !sapply(stb_survey, function(col) all(is.na(col)))]
+
+
+stb_survey <- stb_survey[!is.na(stb_survey$Value), ]
+
+
+stb_survey <- stb_survey[stb_survey$State != "OTHER STATES", ]
+
+
+```
+
+```{r}
+strwb_census$`CV (%)`<- as.numeric(strwb_census$`CV (%)`)
+strwb_census <- strwb_census %>%
+  select(-Program,-`Period`,-Fruit,-crop_type,-Domain,-`Domain Category`)
+
+```
 <!-- ## chemicals -->
 
 <!-- ### carcinogens from WHO list -->
