@@ -110,18 +110,6 @@ strawberry_census <- strawberry_census |> relocate(`Process Market`, .before = M
 strawberry_census <- strawberry_census |> rename(Totals = prop_acct)
 
 ```
-
-## EDA
-
-Once the data has been cleaned and organized, you must conduct your own EDA. Be sure to include a discussion of your analysis of the chemical information, including citations for data and other information you have used. Visualizations should play a key role in your analysis. Plots should be labeled and captioned.
-
-
-
-Dealing with Missing Values, Outliers, and Duplicates
-
-### EDA 
-
-##data analysis
 ```{r}
 strawberry_census_dollar <- strawberry_census %>%
   filter(!is.na(Value) & (Metric == "$"))
@@ -155,7 +143,53 @@ common_states <- intersect(top_10_states_OWS$State, intersect(top_10_states_doll
 common_states_data <- common_states_data %>%
   filter(State %in% common_states)
 ```
+```{r}
 
+
+strwb_survey<- strawberry |> filter((Program=="SURVEY"))
+stb_survey <- strwb_survey %>%
+  filter(str_detect(`Data Item`, "MEASURED IN")) %>%
+  mutate(`Data Item` = str_extract(`Data Item`, "(?<=MEASURED IN ).*"))
+stb_survey <- stb_survey %>%
+  mutate(
+    Chemical = if_else(str_detect(`Domain Category`, "\\(.*=.*\\)"),
+                       str_extract(`Domain Category`, "(?<=\\().*?(?=\\=)"),
+                       NA_character_),
+    Chemical_Code = if_else(str_detect(`Domain Category`, "\\(.*=.*\\)"),
+                            str_extract(`Domain Category`, "(?<=\\=).*?(?=\\))"),
+                            NA_character_)
+  )
+
+
+stb_survey <- subset(stb_survey, select = -Program)
+stb_survey <- subset(stb_survey, select = -`Domain Category`)
+```
+
+
+
+###  Dealing with Missing Values, Outliers, and Duplicates
+
+
+```{r}
+stb_survey <- stb_survey[, !sapply(stb_survey, function(col) all(is.na(col)))]
+
+
+stb_survey <- stb_survey[!is.na(stb_survey$Value), ]
+
+
+stb_survey <- stb_survey[stb_survey$State != "OTHER STATES", ]
+
+strawberry_survey_chemical <- stb_survey  |>
+  filter(!is.na(Chemical_Code))
+```
+## EDA
+
+Once the data has been cleaned and organized, you must conduct your own EDA. Be sure to include a discussion of your analysis of the chemical information, including citations for data and other information you have used. Visualizations should play a key role in your analysis. Plots should be labeled and captioned.
+
+
+### EDA for census
+
+## data analysis
 
 # 1. Top 10 States by Average Value ($)
 ```{r}
@@ -195,18 +229,73 @@ gg_ows <- ggplot(top_10_states_OWS, aes(x = reorder(State, -avg_value), y = avg_
 print(gg_ows)
 cat("The cities with the top 10 ave_sales are(OWS):", top_10_states_OWS$State, "\n")
 ```
+### EDA for Toxic
+
+```{r}
+# Load the required packages
+library(jsonlite)
+library(httr)
+library(dplyr)
+library(purrr)
+
+# Function to translate PC to CAS
+get_cas <- function(PC) {
+  PC <- sprintf("%06d", as.numeric(PC))
+  path <- paste0("https://ordspub.epa.gov/ords/pesticides/apprilapi/?q=%7b%22ais%22:%7b%22$instr%22:%22", PC, "%22%7d%7d")
+  r <- GET(url = path)
+  r_text <- content(r, as = "text", encoding = "UTF-8")
+  df <- fromJSON(r_text, flatten = TRUE)
+  df_strwb <- df$items[grepl("Strawberries", df$items$sites, fixed = TRUE), ]
+  ais <- df_strwb$ais[1]
+  pattern <- "\\(([^A-Za-z]+)\\/([0-9-]+)\\)"
+  matches <- regmatches(ais, gregexpr(pattern, ais))
+  cas <- sapply(matches, function(x) gsub(".*\\/([0-9-]+)\\)", "\\1", x))
+  if (is.character(cas)) {
+    return(cas[1])
+  } else {
+    return(NA)
+  }
+}
+
+# Create a PC to CAS dataframe for the survey data
+PCs <- unique(strawberry_survey_chemical$Chemical_Code)[-1]
+CAS <- map_chr(PCs, get_cas)
+
+PC_form <- data.frame(PC = PCs, CAS = CAS)
+
+# Merge data with CAS
+merged_data_cas <- left_join(strawberry_survey_chemical, PC_form, by = c("Chemical_Code" = "PC"))
+
+# Merge with toxic data
+toxic <- read_csv("CAS.csv")
+
+merged_data_toxic <- toxic %>%
+  filter(!is.na(Toxic))
+
+merged_data_toxic <- merge(merged_data_cas, toxic, by.x = "CAS", by.y = "chemical", all.x = TRUE)
+
+# If you're trying to filter based on the 'cas' column:
+merged_data_toxic_nonna <- merged_data_toxic %>%
+  filter(!is.na(Toxic))
+
+# Check the length
+length(merged_data_toxic_nonna$Toxic)
 
 
-# 5.harzard based on cas value
+
+
+```
+
+# 4.count toxic based on merged_data_toxic_nonna
 
 ```{r}
 library(ggplot2)
 
-data <- read.csv("merage.csv") 
 
-ggplot(data, aes(x=cas)) +
+
+ggplot(merged_data_toxic_nonna, aes(x=Toxic)) +
   geom_bar(fill="steelblue", color="black") +
-  labs(title="Distribution of Hazard Levels ('cas' Values)", x="Hazard Levels", y="Count") +
+  labs(title="Distribution of Hazard Levels ('Toxic' Values)", x="Hazard Levels", y="Count") +
   theme_minimal()
 
 ```
